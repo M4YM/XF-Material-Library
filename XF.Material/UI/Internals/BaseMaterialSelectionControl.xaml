@@ -5,12 +5,12 @@
              xmlns:material="clr-namespace:XF.Material.Forms.UI"
              xmlns:sys="clr-namespace:System;assembly=netstandard"
              x:Name="_root"
-             Padding="0"
+             Padding="0" Margin="0"
              HorizontalOptions="Start"
              VerticalOptions="Start">
     <ContentView.Content>
         <Grid x:Name="selectionGrid"
-              Padding="0"
+              Padding="0" Margin="0"
               ColumnSpacing="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -19,16 +19,20 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
+            <!--<BoxView x:Name="backgroundCard"
+                     Grid.Row="0" Margin="0"
+                     Grid.ColumnSpan="1"
+                     BackgroundColor="#DCDCDC" />-->
             <material:MaterialButton x:Name="selectionButton"
                                      Grid.ColumnSpan="2"
                                      Margin="-6"
                                      ButtonType="Text"
                                      CornerRadius="0"
-                                     HeightRequest="24"
+                                     HeightRequest="12"
                                      HorizontalOptions="FillAndExpand"
                                      IsVisible="{Binding Source={x:Reference selectionText}, Path=IsVisible}"
                                      Text="{x:Null}"
-                                     WidthRequest="24" />
+                                     WidthRequest="12" />
             <material:MaterialButton x:Name="iconButton"
                                      Grid.Column="0"
                                      ButtonType="Text"
@@ -36,22 +40,32 @@
                                      HorizontalOptions="Center"
                                      Text="{x:Null}"
                                      VerticalOptions="Center"
-                                     WidthRequest="48" />
-            <material:MaterialIcon x:Name="selectionIcon"
+                                     Margin="0"
+                                     HeightRequest="36"
+                                     WidthRequest="36" />
+            <!--<material:MaterialIcon x:Name="selectionIcon"
                                    Grid.Column="0"
                                    Margin="12"
                                    HeightRequest="24"
                                    HorizontalOptions="Center"
                                    InputTransparent="True"
                                    VerticalOptions="Center"
-                                   WidthRequest="24" />
+                                   WidthRequest="24" />-->
+            <material:MaterialLabel x:Name="selectionIcon"
+                                   Grid.Column="0"
+                                   Margin="0,0,0,0"
+                                   FontSize="Body"
+                                   HorizontalOptions="Center"
+                                   InputTransparent="True"
+                                   VerticalOptions="Center" 
+                                   FontFamily="{StaticResource FontAwesomeSolid}" />
             <material:MaterialLabel x:Name="selectionText"
                                     Grid.Column="1"
-                                    Margin="0,16"
+                                    Margin="0,12"
                                     HorizontalOptions="FillAndExpand"
                                     InputTransparent="True"
                                     TextColor="#DE000000"
-                                    TypeScale="Body1"
+                                    TypeScale="Body2"
                                     VerticalOptions="Center"
                                     WidthRequest="1000">
                 <Label.Triggers>

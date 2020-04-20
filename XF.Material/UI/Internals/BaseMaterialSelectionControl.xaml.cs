@@ -204,15 +204,18 @@ namespace XF.Material.Forms.UI.Internals
 
         private void OnSelectedChanged(bool isSelected)
         {
-            selectionIcon.Source = isSelected ? _selectedSource : _unselectedSource;
-            selectionIcon.TintColor = isSelected ? SelectedColor : UnselectedColor;
+            //selectionIcon.Source = isSelected ? _selectedSource : _unselectedSource;
+            //selectionIcon.TintColor = isSelected ? SelectedColor : UnselectedColor;
+            selectionIcon.Text = isSelected ? _selectedSource : _unselectedSource;
+            selectionIcon.TextColor = isSelected ? SelectedColor : UnselectedColor;
             SelectedChanged?.Invoke(this, new SelectedChangedEventArgs(isSelected));
             SelectedChangeCommand?.Execute(isSelected);
         }
 
         private void OnStateColorChanged(bool isSelected)
         {
-            selectionIcon.TintColor = isSelected ? SelectedColor : UnselectedColor;
+            //selectionIcon.TintColor = isSelected ? SelectedColor : UnselectedColor;
+            selectionIcon.TextColor = isSelected ? SelectedColor : UnselectedColor;
         }
 
         private void OnTextChanged()
@@ -232,8 +235,10 @@ namespace XF.Material.Forms.UI.Internals
 
         private void SetControl()
         {
-            selectionIcon.Source = IsSelected ? _selectedSource : _unselectedSource;
-            selectionIcon.TintColor = IsSelected ? SelectedColor : UnselectedColor;
+            //selectionIcon.Source = IsSelected ? _selectedSource : _unselectedSource;
+            //selectionIcon.TintColor = IsSelected ? SelectedColor : UnselectedColor;
+            selectionIcon.Text = IsSelected ? _selectedSource : _unselectedSource;
+            selectionIcon.TextColor = IsSelected ? SelectedColor : UnselectedColor;
             iconButton.Command = selectionButton.Command = new Command(() =>
             {
                 IsSelected = !IsSelected;
@@ -247,14 +252,16 @@ namespace XF.Material.Forms.UI.Internals
             switch (controlType)
             {
                 case MaterialSelectionControlType.Checkbox:
-                    _selectedSource = "xf_checkbox_selected";
-                    _unselectedSource = "xf_checkbox_unselected";
+                    _selectedSource = "\uf14a"; // SQUARE
+                    _selectedSource = "\uf058"; // CIRCLE
+                    _unselectedSource = "\uf0c8"; // SQUARE
+                    _unselectedSource = "\uf111"; // CIRCLE
                     break;
 
                 case MaterialSelectionControlType.RadioButton:
-                    _selectedSource = "xf_radio_button_selected";
-                    _unselectedSource = "xf_radio_button_unselected";
-                    selectionIcon.WidthRequest = selectionIcon.HeightRequest = 20;
+                    _selectedSource = "\uf192";
+                    _unselectedSource = "\uf111";
+                    //selectionIcon.WidthRequest = selectionIcon.HeightRequest = 20;
                     break;
             }
         }

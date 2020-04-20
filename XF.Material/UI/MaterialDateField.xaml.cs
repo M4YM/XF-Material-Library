@@ -18,6 +18,7 @@ namespace XF.Material.Forms.UI
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class MaterialDateField : ContentView, IMaterialElementConfiguration
     {
+        #region BINDABLE PROPERTIES
         public static readonly BindableProperty AlwaysShowUnderlineProperty = BindableProperty.Create(nameof(AlwaysShowUnderline), typeof(bool), typeof(MaterialDateField), false);
 
         public static new readonly BindableProperty BackgroundColorProperty = BindableProperty.Create(nameof(BackgroundColor), typeof(Color), typeof(MaterialDateField), Color.FromHex("#DCDCDC"));
@@ -68,12 +69,17 @@ namespace XF.Material.Forms.UI
 
         public static readonly BindableProperty TintColorProperty = BindableProperty.Create(nameof(TintColor), typeof(Color), typeof(MaterialDateField), Material.Color.Secondary);
 
-        public static readonly BindableProperty ClearIconProperty = BindableProperty.Create(nameof(ClearIcon), typeof(string), typeof(MaterialDateField), "xf_clear");
+        public static readonly BindableProperty ClearIconProperty = BindableProperty.Create(nameof(ClearIcon), typeof(string), typeof(MaterialDateField), "\uf12d");
 
         public static readonly BindableProperty UnderlineColorProperty = BindableProperty.Create(nameof(UnderlineColor), typeof(Color), typeof(MaterialDateField), Color.FromHex("#99000000"));
 
-        private const double AnimationDuration = 0.35;
-        private readonly Easing _animationCurve = Easing.SinOut;
+        public static readonly BindableProperty KeepErrorShownProperty = BindableProperty.Create(nameof(KeepErrorShown), typeof(bool), typeof(MaterialTextField), false);
+
+        public static readonly BindableProperty ShowHelperOnlyOnFocusProperty = BindableProperty.Create(nameof(ShowHelperOnlyOnFocus), typeof(bool), typeof(MaterialTextField), true);
+    #endregion
+
+        private const double AnimationDuration = 0.85;
+        private readonly Easing _animationCurve = Easing.SinInOut;
         private readonly Dictionary<string, Action> _propertyChangeActions;
         private readonly IList<string> _choices;
         private readonly bool _counterEnabled;
@@ -154,7 +160,7 @@ namespace XF.Material.Forms.UI
             }
         }
 
-        public ImageSource ClearIcon
+        public string ClearIcon
         {
             get
             {
@@ -198,6 +204,24 @@ namespace XF.Material.Forms.UI
             {
                 SetValue(ErrorTextProperty, value);
             }
+        }
+
+        /// <summary>
+        /// Gets or sets the boolean value whether the error should continue to show once it has lost focus.
+        /// </summary>
+        public bool KeepErrorShown
+        {
+            get => (bool)GetValue(KeepErrorShownProperty);
+            set => SetValue(KeepErrorShownProperty, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the boolean value whether the helper text should only show once it has focus.
+        /// </summary>
+        public bool ShowHelperOnlyOnFocus
+        {
+            get => (bool)GetValue(ShowHelperOnlyOnFocusProperty);
+            set => SetValue(ShowHelperOnlyOnFocusProperty, value);
         }
 
         /// <summary>
@@ -629,17 +653,36 @@ namespace XF.Material.Forms.UI
         private void AnimateToActivatedState()
         {
             var anim = new Animation();
-            var hasDate = Date.HasValue;
+            var hasText = datePicker.NullableDate.HasValue;
 
             if (datePicker.IsFocused)
             {
                 var tintColor = HasError ? ErrorColor : TintColor;
 
+                underline.Color = tintColor;
+
                 if (ShouldAnimateUnderline)
                 {
                     anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, 1, 2, _animationCurve, () =>
                     {
-                        underline.Color = tintColor;
+                        //underline.Color = tintColor;
+                    }));
+                    anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, datePicker.Width, _animationCurve, () =>
+                    {
+                        underline.WidthRequest = -1;
+                        underline.HorizontalOptions = LayoutOptions.FillAndExpand;
+                    }));
+                }
+                if (ShowHelperOnlyOnFocus)
+                {
+                    //helper.HeightRequest = 0;
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.HeightRequest = v, 0, 25, _animationCurve, () =>
+                    {
+                        //helper.HeightRequest = 15;
+                    }));
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.Opacity = v, 0, 1, _animationCurve, () =>
+                    {
+                        //helper.Opacity = 1;
                     }));
                 }
 
@@ -650,20 +693,33 @@ namespace XF.Material.Forms.UI
                 var underlineColor = HasError ? ErrorColor : UnderlineColor;
                 var placeholderColor = HasError ? ErrorColor : FloatingPlaceholderColor;
 
-                var endHeight = hasDate ? 1 : 0;
+                var endHeight = hasText ? 1 : 0;
+
+                underline.Color = underlineColor;
 
                 if (ShouldAnimateUnderline)
                 {
                     anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, underline.HeightRequest, endHeight, _animationCurve, () =>
                     {
-                        underline.Color = underlineColor;
+                        //underline.Color = underlineColor;
+                    }));
+                }
+                if (ShowHelperOnlyOnFocus)
+                {
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.HeightRequest = v, 25, 0, _animationCurve, () =>
+                    {
+                        helper.HeightRequest = 0;
+                    }));
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.Opacity = v, 1, 0, _animationCurve, () =>
+                    {
+                        helper.Opacity = 0;
                     }));
                 }
 
                 placeholder.TextColor = placeholderColor;
             }
 
-            anim.Commit(this, "UnfocusAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS ? 500 : AnimationDuration * 1000), easing: _animationCurve);
+            anim.Commit(this, "UnfocusAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS ? 750 : AnimationDuration * 1000), easing: _animationCurve);
         }
 
         private void AnimateToInactiveOrFocusedState()
@@ -671,10 +727,11 @@ namespace XF.Material.Forms.UI
             Color tintColor;
             var preferredStartFont = FloatingPlaceholderFontSize == 0 ? datePicker.FontSize * 0.75 : FloatingPlaceholderFontSize;
             var preferredEndFont = FloatingPlaceholderFontSize == 0 ? datePicker.FontSize * 0.75 : FloatingPlaceholderFontSize;
-            var startFont = datePicker.IsFocused ? datePicker.FontSize : preferredStartFont;
-            var endFOnt = datePicker.IsFocused ? preferredEndFont : datePicker.FontSize;
+            var startFont = datePicker.IsFocused ? datePicker.FontSize * 0.85 : preferredStartFont;
+            var endFOnt = datePicker.IsFocused ? preferredEndFont : datePicker.FontSize * 0.85;
             var startY = placeholder.TranslationY;
-            var endY = datePicker.IsFocused ? -(datePicker.FontSize * 0.8) : 0;
+            //WHERE SHOULD THE FLOATING PLACEHOLDER BE PLACED
+            var endY = datePicker.IsFocused ? -(datePicker.FontSize * 1.1) : 0;
 
             if (HasError)
             {
@@ -685,7 +742,7 @@ namespace XF.Material.Forms.UI
                 tintColor = datePicker.IsFocused ? TintColor : PlaceholderColor;
             }
 
-            var anim = FloatingPlaceholderEnabled ? new Animation
+            var anim = (FloatingPlaceholderEnabled && datePicker.IsFocused) ? new Animation
             {
                 {
                     0.0,
@@ -713,10 +770,37 @@ namespace XF.Material.Forms.UI
                 {
                     underline.Color = HasError ? ErrorColor : TintColor;
 
-                    anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, Width, _animationCurve, () =>
+                    if (AlwaysShowUnderline)
                     {
-                        underline.WidthRequest = -1;
-                        underline.HorizontalOptions = LayoutOptions.FillAndExpand;
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, datePicker.Width, _animationCurve, () =>
+                        {
+                            underline.WidthRequest = -1;
+                            underline.HorizontalOptions = LayoutOptions.FillAndExpand;
+                        }));
+                    }
+                    else
+                    {
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, 1, 2, _animationCurve, () =>
+                        {
+                            underline.Color = tintColor;
+                        }));
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, datePicker.Width, _animationCurve, () =>
+                        {
+                            underline.WidthRequest = -1;
+                            underline.HorizontalOptions = LayoutOptions.FillAndExpand;
+                        }));
+                    }
+                }
+                if (ShowHelperOnlyOnFocus)
+                {
+                    //helper.HeightRequest = 0;
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.HeightRequest = v, 0, 25, _animationCurve, () =>
+                    {
+                        //helper.HeightRequest = 15;
+                    }));
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.Opacity = v, 0, 1, _animationCurve, () =>
+                    {
+                        //helper.Opacity = 1;
                     }));
                 }
             }
@@ -724,30 +808,69 @@ namespace XF.Material.Forms.UI
             {
                 if (ShouldAnimateUnderline)
                 {
-                    anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, underline.HeightRequest, 0, _animationCurve, () =>
+                    underline.Color = HasError ? ErrorColor : UnderlineColor;
+
+                    if(!AlwaysShowUnderline)
                     {
-                        underline.WidthRequest = 0;
-                        underline.HeightRequest = 2;
-                        underline.HorizontalOptions = LayoutOptions.Center;
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, underline.HeightRequest, 1, _animationCurve, () =>
+                        {
+                            underline.WidthRequest = -1;
+                            underline.HeightRequest = 1;
+                            underline.HorizontalOptions = LayoutOptions.FillAndExpand;
+                        }));
+                    }
+                    else
+                    {
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, underline.HeightRequest, 0, _animationCurve, () =>
+                        {
+                            underline.WidthRequest = 0;
+                            underline.HeightRequest = 2;
+                            underline.HorizontalOptions = LayoutOptions.Center;
+                        }));
+                    }  
+                }
+                if (ShowHelperOnlyOnFocus)
+                {
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.HeightRequest = v, 25, 0, _animationCurve, () =>
+                    {
+                        helper.HeightRequest = 0;
+                    }));
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.Opacity = v, 1, 0, _animationCurve, () =>
+                    {
+                        helper.Opacity = 0;
                     }));
                 }
             }
 
-            anim.Commit(this, "FocusAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS ? 500 : AnimationDuration * 1000), easing: _animationCurve);
+            anim.Commit(this, "FocusAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS ? 750 : AnimationDuration * 1000), easing: _animationCurve);
         }
 
         private void AnimateToInactiveOrFocusedStateOnStart(object startObject)
         {
-            var placeholderEndY = -(datePicker.FontSize * 0.8);
-            var placeholderEndFont = datePicker.FontSize * 0.75;
+            var placeholderEndY = -(datePicker.FontSize * 1.1);
+            var placeholderEndFont = datePicker.FontSize * 0.85;
 
             if (!FloatingPlaceholderEnabled && !datePicker.NullableDate.HasValue)
             {
                 placeholder.TextColor = PlaceholderColor;
             }
 
-            if (startObject != null && Date.HasValue /*&& !this._wasFocused*/)
+            if (!datePicker.IsFocused)
             {
+                if (ShowHelperOnlyOnFocus)
+                {
+                    helper.HeightRequest = 0;
+                    helper.Opacity = 0;
+                }
+            }
+
+            if (startObject != null && datePicker.NullableDate.HasValue) // && !_wasFocused)
+            {
+                if (placeholder.TranslationY == placeholderEndY)
+                {
+                    placeholder.TextColor = HasError ? ErrorColor : PlaceholderColor;
+                    return;
+                }
                 datePicker.Opacity = 0;
 
                 Device.BeginInvokeOnMainThread(() =>
@@ -768,7 +891,7 @@ namespace XF.Material.Forms.UI
                     {
                         underline.Color = HasError ? ErrorColor : TintColor;
                         underline.HeightRequest = 1;
-                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, Width, _animationCurve, () => underline.HorizontalOptions = LayoutOptions.FillAndExpand));
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, datePicker.Width, _animationCurve, () => underline.HorizontalOptions = LayoutOptions.FillAndExpand));
                     }
 
                     anim.Commit(this, "Anim2", rate: 2, length: (uint)(AnimationDuration * 1000), easing: _animationCurve);
@@ -779,7 +902,7 @@ namespace XF.Material.Forms.UI
                 return;
             }
 
-            if (startObject != null && !Date.HasValue && placeholder.TranslationY == placeholderEndY)
+            if (startObject != null && !datePicker.NullableDate.HasValue && placeholder.TranslationY == placeholderEndY)
             {
                 if (datePicker.IsFocused)
                 {
@@ -802,11 +925,16 @@ namespace XF.Material.Forms.UI
 
                     if (ShouldAnimateUnderline)
                     {
-                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, Width, 0, _animationCurve, () => underline.HorizontalOptions = LayoutOptions.Center));
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, datePicker.Width, 0, _animationCurve, () => underline.HorizontalOptions = LayoutOptions.Center));
                     }
 
                     anim.Commit(this, "Anim2", rate: 2, length: (uint)(AnimationDuration * 1000), easing: _animationCurve);
                 });
+            }
+
+            if (startObject != null && !datePicker.NullableDate.HasValue && placeholder.TranslationY != placeholderEndY)
+            {
+                placeholder.FontSize = placeholderEndFont;
             }
         }
 
@@ -819,8 +947,10 @@ namespace XF.Material.Forms.UI
             underline.Color = ShouldAnimateUnderline ? ErrorColor : Color.Transparent;
             persistentUnderline.Color = AlwaysShowUnderline ? ErrorColor : Color.Transparent;
             trailingIcon.IsVisible = true;
-            trailingIcon.Source = "xf_error";
-            trailingIcon.TintColor = ErrorColor;
+            //trailingIcon.Source = "xf_error";
+            //trailingIcon.TintColor = ErrorColor;
+            trailingIcon.Text = "\uf06a";
+            trailingIcon.TextColor = ErrorColor;
 
             if (string.IsNullOrEmpty(ErrorText))
             {
@@ -896,6 +1026,14 @@ namespace XF.Material.Forms.UI
         private void DatePicker_Focused(object sender, FocusEventArgs e)
         {
             _wasFocused = true;
+
+            //IF HELPER TEXT IS NOT NULL THEN SHOW IT ON FOCUS
+            //IF THERE IS AN ERROR THEN SHOW IT
+            if (!HasError)
+                helper.IsVisible = !string.IsNullOrEmpty(HelperText);
+            else
+                helper.IsVisible = true;
+
             FocusCommand?.Execute(datePicker.IsFocused);
             Focused?.Invoke(this, e);
         }
@@ -916,7 +1054,7 @@ namespace XF.Material.Forms.UI
 
         private void Entry_SizeChanged(object sender, EventArgs e)
         {
-            var baseHeight = FloatingPlaceholderEnabled ? 56 : 40;
+            var baseHeight = FloatingPlaceholderEnabled ? 30 : 30;
             var diff = datePicker.Height - 20;
             var rawRowHeight = baseHeight + diff;
             _autoSizingRow.Height = new GridLength(rawRowHeight);
@@ -946,10 +1084,16 @@ namespace XF.Material.Forms.UI
             var placeholderLeftMargin = FloatingPlaceholderEnabled ? HorizontalPadding.Left : datePicker.Margin.Left;
             placeholder.Margin = new Thickness(placeholderLeftMargin, 0, 0, 0);
 
+            underline.Margin = new Thickness(datePicker.Margin.Left, 0, datePicker.Margin.Left, -1);
+            persistentUnderline.Margin = new Thickness(datePicker.Margin.Left, 0, datePicker.Margin.Left, -1);
+
             if (HasError)
             {
                 underline.Color = ErrorColor;
             }
+
+            if (!ShowHelperOnlyOnFocus || KeepErrorShown)
+                helper.IsVisible = true;
         }
 
         private void DatePicker_DateChanged(object sender, NullableDateChangedEventArgs e)
@@ -961,6 +1105,17 @@ namespace XF.Material.Forms.UI
 
         private void DatePicker_Unfocused(object sender, FocusEventArgs e)
         {
+
+            //// HIDE HELPER TEXT WHEN THE FOCUS IS LOST ON THE TEXT BOX
+            //if (ShowHelperOnlyOnFocus)
+            //    if (!HasError)
+            //        helper.IsVisible = false;
+
+            //// HIDE HELPER TEXT WHEN THE FOCUS IS LOST ON THE TEXT BOX AND ISN'T REQUIRED TO BE SHOWN
+            //// EVEN WHEN IT HAS AN ERROR
+            //if (HasError && !KeepErrorShown)
+            //    helper.IsVisible = false;
+
             FocusCommand?.Execute(datePicker.IsFocused);
             Unfocused?.Invoke(this, e);
         }
@@ -986,7 +1141,8 @@ namespace XF.Material.Forms.UI
 
         private void OnErrorColorChanged(Color errorColor)
         {
-            trailingIcon.TintColor = errorColor;
+            //trailingIcon.TintColor = errorColor;
+            trailingIcon.TextColor = errorColor;
         }
 
         private void OnErrorTextChanged()
@@ -995,6 +1151,17 @@ namespace XF.Material.Forms.UI
             {
                 ChangeToErrorState();
             }
+
+            if (!ShowHelperOnlyOnFocus)
+                helper.IsVisible = !string.IsNullOrEmpty(ErrorText);
+            else
+                helper.IsVisible = false;
+
+            if (HasError && KeepErrorShown)
+                helper.IsVisible = true;
+
+            if (HasError && !KeepErrorShown)
+                helper.IsVisible = false;
         }
 
         private void OnFloatingPlaceholderEnabledChanged(bool isEnabled)
@@ -1039,13 +1206,15 @@ namespace XF.Material.Forms.UI
 
         private void OnLeadingIconChanged(string icon)
         {
-            leadingIcon.Source = icon;
+            //leadingIcon.Source = icon;
+            leadingIcon.Text = icon;
             OnLeadingIconTintColorChanged(LeadingIconTintColor);
         }
 
         private void OnLeadingIconTintColorChanged(Color tintColor)
         {
-            leadingIcon.TintColor = tintColor;
+            //leadingIcon.TintColor = tintColor;
+            leadingIcon.TextColor = tintColor;
         }
 
         private void OnPlaceholderChanged(string placeholderText)
@@ -1072,7 +1241,8 @@ namespace XF.Material.Forms.UI
 
         private void OnTextColorChanged(Color textColor)
         {
-            datePicker.TextColor = trailingIcon.TintColor = textColor;
+            //datePicker.TextColor = trailingIcon.TintColor = textColor;
+            datePicker.TextColor = trailingIcon.TextColor = textColor;
         }
 
         private void OnTextFontFamilyChanged(string fontFamily)
@@ -1100,10 +1270,15 @@ namespace XF.Material.Forms.UI
 
         private void SetControl()
         {
-            trailingIcon.TintColor = TextColor;
+            //trailingIcon.TintColor = TextColor;
+            trailingIcon.TextColor = TextColor;
 
-            clearIcon.TintColor = TextColor;
-            clearIcon.Source = ClearIcon;
+            //clearIcon.TintColor = TextColor;
+            //clearIcon.Source = ClearIcon;
+            clearIcon.TextColor = TextColor;
+            clearIcon.Text = ClearIcon;
+
+
             clearIcon.GestureRecognizers.Add(new TapGestureRecognizer()
             {
                 Command = new Command(() =>

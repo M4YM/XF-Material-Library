@@ -17,9 +17,9 @@
                                       NumberOfTapsRequired="1" />
             </View.GestureRecognizers>
             <Grid.RowDefinitions>
-                <RowDefinition x:Name="_autoSizingRow"
-                               Height="56" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition x:Name="_autoSizingRow" Height="36" />
+                <RowDefinition x:Name="rowHelper" Height="5" />
+                <RowDefinition x:Name="_autoHelperSizingRow" Height="Auto" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -27,23 +27,45 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <BoxView x:Name="backgroundCard"
-                     Grid.Row="0"
+                     Grid.Row="0" Margin="0"
                      Grid.ColumnSpan="3"
                      BackgroundColor="#DCDCDC"
                      CornerRadius="4,4,0,0" />
-            <material:MaterialIcon x:Name="leadingIcon"
+
+            <!--<BoxView x:Name="whole"
+                     Grid.Row="0" Grid.RowSpan="3" Margin="0"
+                     Grid.ColumnSpan="3"
+                     BackgroundColor="Red"
+                     CornerRadius="0" />-->
+
+            <!--<BoxView x:Name="bottomRows"
+                     Grid.Row="1" Grid.RowSpan="2" Margin="0"
+                     Grid.ColumnSpan="3"
+                     BackgroundColor="#33od1c46"
+                     CornerRadius="0" />-->
+            <!--<material:MaterialIcon x:Name="leadingIcon"
                                    Grid.Row="0"
                                    Grid.Column="0"
                                    Margin="12,16,0,16"
                                    HeightRequest="24"
                                    VerticalOptions="Start"
-                                   WidthRequest="24">
+                                   WidthRequest="24">-->
+            <material:MaterialLabel x:Name="leadingIcon"
+                                   Grid.Row="0"
+                                   Grid.Column="0"
+                                   Margin="0,0,0,0"
+                                   VerticalOptions="Center"
+                                   FontSize="Caption"
+                                   FontFamily="{StaticResource FontAwesomeSolid}" >
                 <View.Triggers>
-                    <Trigger TargetType="material:MaterialIcon" Property="Source" Value="{x:Null}">
+                    <Trigger TargetType="material:MaterialLabel" Property="Text" Value="{x:Null}">
+                        <Setter Property="IsVisible" Value="False" />
+                    </Trigger>
+                    <Trigger TargetType="material:MaterialLabel" Property="Text" Value="">
                         <Setter Property="IsVisible" Value="False" />
                     </Trigger>
                 </View.Triggers>
-            </material:MaterialIcon>
+            </material:MaterialLabel>
             <material:MaterialLabel x:Name="placeholder"
                                     Grid.Row="0"
                                     Grid.Column="1"
@@ -60,9 +82,9 @@
                          Grid.Column="1"
                          Grid.ColumnSpan="2"
                          HorizontalOptions="FillAndExpand"
-                         VerticalOptions="Start">
+                         VerticalOptions="Center">
                 <internal:MaterialEntry x:Name="entry"
-                                        Margin="12,24,12,0"
+                                        Margin="12,0,12,0"
                                         FontFamily="{DynamicResource Material.FontFamily.Body2}"
                                         FontSize="16"
                                         HorizontalOptions="FillAndExpand"
@@ -80,22 +102,92 @@
             </ContentView>
             <BoxView x:Name="persistentUnderline"
                      Grid.Row="0"
-                     Grid.ColumnSpan="3"
+                     Grid.Column="1"
+                     Grid.ColumnSpan="2"
                      Margin="0,0,0,-1"
                      HeightRequest="1"
                      HorizontalOptions="FillAndExpand"
                      IsVisible="False"
                      VerticalOptions="End"
-                     Color="{Binding Source={x:Reference underline}, Path=Color}" />
+                     Color="{Binding Source={x:Reference underline}, Path=Color}">
+                <BoxView.Triggers>
+                    <!--<MultiTrigger TargetType="BoxView">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding Source={x:Reference trailingIcon}, Path=IsVisible}" Value="True" />
+                            <BindingCondition Binding="{Binding Source={x:Reference leadingIcon}, Path=IsVisible}" Value="False" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Grid.Column" Value="1" />
+                        <Setter Property="Grid.ColumnSpan" Value="2" />
+                    </MultiTrigger>
+                    <MultiTrigger TargetType="BoxView">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding Source={x:Reference trailingIcon}, Path=IsVisible}" Value="False" />
+                            <BindingCondition Binding="{Binding Source={x:Reference leadingIcon}, Path=IsVisible}" Value="True" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Grid.ColumnSpan" Value="2" />
+                    </MultiTrigger>
+                    <MultiTrigger TargetType="BoxView">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding Source={x:Reference trailingIcon}, Path=IsVisible}" Value="False" />
+                            <BindingCondition Binding="{Binding Source={x:Reference leadingIcon}, Path=IsVisible}" Value="False" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Grid.Column" Value="1" />
+                        <Setter Property="Grid.ColumnSpan" Value="1" />
+                    </MultiTrigger>-->
+                    <!--<MultiTrigger TargetType="BoxView">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding Source={x:Reference trailingIcon}, Path=IsVisible}" Value="True" />
+                            <BindingCondition Binding="{Binding Source={x:Reference leadingIcon}, Path=IsVisible}" Value="True" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Grid.Column" Value="0" />
+                        <Setter Property="Grid.ColumnSpan" Value="3" />
+                    </MultiTrigger>-->
+                </BoxView.Triggers>
+            </BoxView>
             <BoxView x:Name="underline"
                      Grid.Row="0"
-                     Grid.ColumnSpan="3"
+                     Grid.Column="1"
+                     Grid.ColumnSpan="2"
                      Margin="0,0,0,-1"
                      HeightRequest="2"
                      HorizontalOptions="Center"
                      VerticalOptions="End"
-                     WidthRequest="0" />
-            <material:MaterialIcon x:Name="trailingIcon"
+                     WidthRequest="0">
+                <BoxView.Triggers>
+                    <!--<MultiTrigger TargetType="BoxView">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding Source={x:Reference trailingIcon}, Path=IsVisible}" Value="True" />
+                            <BindingCondition Binding="{Binding Source={x:Reference leadingIcon}, Path=IsVisible}" Value="False" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Grid.Column" Value="1" />
+                        <Setter Property="Grid.ColumnSpan" Value="2" />
+                    </MultiTrigger>
+                    <MultiTrigger TargetType="BoxView">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding Source={x:Reference trailingIcon}, Path=IsVisible}" Value="False" />
+                            <BindingCondition Binding="{Binding Source={x:Reference leadingIcon}, Path=IsVisible}" Value="True" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Grid.ColumnSpan" Value="2" />
+                    </MultiTrigger>
+                    <MultiTrigger TargetType="BoxView">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding Source={x:Reference trailingIcon}, Path=IsVisible}" Value="False" />
+                            <BindingCondition Binding="{Binding Source={x:Reference leadingIcon}, Path=IsVisible}" Value="False" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Grid.Column" Value="1" />
+                        <Setter Property="Grid.ColumnSpan" Value="1" />
+                    </MultiTrigger>-->
+                    <!--<MultiTrigger TargetType="BoxView">
+                        <MultiTrigger.Conditions>
+                            <BindingCondition Binding="{Binding Source={x:Reference trailingIcon}, Path=IsVisible}" Value="True" />
+                            <BindingCondition Binding="{Binding Source={x:Reference leadingIcon}, Path=IsVisible}" Value="True" />
+                        </MultiTrigger.Conditions>
+                        <Setter Property="Grid.Column" Value="0" />
+                        <Setter Property="Grid.ColumnSpan" Value="3" />
+                    </MultiTrigger>-->
+                </BoxView.Triggers>
+            </BoxView>
+            <!--<material:MaterialIcon x:Name="trailingIcon"
                                    Grid.Row="0"
                                    Grid.Column="2"
                                    Margin="0,16,12,16"
@@ -103,21 +195,31 @@
                                    IsVisible="False"
                                    Source="xf_arrow_dropdown"
                                    VerticalOptions="Start"
-                                   WidthRequest="24" />
-            <material:MaterialLabel x:Name="helper"
-                                    Grid.Row="1"
-                                    Grid.Column="0"
-                                    Grid.ColumnSpan="3"
-                                    Margin="12,4,12,0"
+                                   WidthRequest="24" />-->
+            <material:MaterialLabel x:Name="trailingIcon"
+                                   Grid.Row="0"
+                                   Grid.Column="2"
+                                   Margin="0,0,0,0"
+                                    Padding="0"
+                                   FontSize="Caption"
+                                   IsVisible="False"
+                                   VerticalOptions="Center"
+                                   FontFamily="{StaticResource FontAwesomeSolid}" />
+            
+            <material:MaterialLabel x:Name="helper" LineHeight=".8"
+                                    Grid.Row="1" Grid.RowSpan="2"
+                                    Grid.Column="1"
+                                    Grid.ColumnSpan="2"
+                                    Margin="0,4,0,0"
                                     TextColor="#99000000"
                                     TypeScale="Caption">
                 <Label.Triggers>
-                    <Trigger TargetType="Label" Property="Text" Value="">
+                    <!--<Trigger TargetType="Label" Property="Text" Value="">
                         <Setter Property="IsVisible" Value="False" />
                     </Trigger>
                     <Trigger TargetType="Label" Property="Text" Value="{x:Null}">
                         <Setter Property="IsVisible" Value="False" />
-                    </Trigger>
+                    </Trigger>-->
                     <DataTrigger Binding="{Binding Source={x:Reference counter}, Path=IsVisible}"
                                  TargetType="Label"
                                  Value="True">

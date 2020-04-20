@@ -6,7 +6,6 @@ using MaterialMvvmSample.Utilities.Dialogs;
 using MaterialMvvmSample.ViewModels;
 using MaterialMvvmSample.Views;
 using Xamarin.Forms;
-using XF.Material.Forms.UI;
 
 namespace MaterialMvvmSample.Core
 {
@@ -43,6 +42,7 @@ namespace MaterialMvvmSample.Core
             containerBuilder.RegisterType<MaterialMenuButtonView>().Named<Page>(ViewNames.MaterialMenuButtonView).As<MaterialMenuButtonView>().InstancePerDependency();
             containerBuilder.RegisterType<MaterialCardView>().Named<Page>(ViewNames.MaterialCardView).As<MaterialCardView>().InstancePerDependency();
             containerBuilder.RegisterType<MaterialButtonView>().Named<Page>(ViewNames.MaterialButtonView).As<MaterialButtonView>().InstancePerDependency();
+            containerBuilder.RegisterType<MaterialPicker>().Named<Page>(ViewNames.MaterialPicker).As<MaterialPicker>().InstancePerDependency();
 
 
             containerBuilder.RegisterType<MainViewModel>().InstancePerDependency();
@@ -55,6 +55,7 @@ namespace MaterialMvvmSample.Core
             containerBuilder.RegisterType<MaterialTextFieldViewModel>().InstancePerDependency();
             containerBuilder.RegisterType<MaterialCardViewModel>().InstancePerDependency();
             containerBuilder.RegisterType<MaterialButtonViewModel>().InstancePerDependency();
+            containerBuilder.RegisterType<MaterialPickerViewModel>().InstancePerDependency();
 
         }
     }

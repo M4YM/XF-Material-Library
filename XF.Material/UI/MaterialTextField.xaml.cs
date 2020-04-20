@@ -22,6 +22,7 @@ namespace XF.Material.Forms.UI
     [XamlCompilation(XamlCompilationOptions.Compile)]
     public partial class MaterialTextField : ContentView, IMaterialElementConfiguration
     {
+        #region BINDABLE PROPERTIES
         public static readonly BindableProperty AlwaysShowUnderlineProperty = BindableProperty.Create(nameof(AlwaysShowUnderline), typeof(bool), typeof(MaterialTextField), false);
 
         public static new readonly BindableProperty BackgroundColorProperty = BindableProperty.Create(nameof(BackgroundColor), typeof(Color), typeof(MaterialTextField), Color.FromHex("#DCDCDC"));
@@ -31,38 +32,6 @@ namespace XF.Material.Forms.UI
         public static readonly BindableProperty ChoicesProperty = BindableProperty.Create(nameof(Choices), typeof(IList), typeof(MaterialTextField));
 
         public static readonly BindableProperty SelectedChoiceProperty = BindableProperty.Create(nameof(SelectedChoice), typeof(object), typeof(MaterialTextField), null, BindingMode.TwoWay, null, propertyChanged: SelectedChoicePropertyChange);
-
-        private static void SelectedChoicePropertyChange(BindableObject bindable, object oldValue, object newValue)
-        {
-            var control = bindable as MaterialTextField;
-            if (control == null)
-            {
-                return;
-            }
-
-            if (control.Choices?.Count > 0)
-            {
-                if (newValue != null)
-                {
-                    // 1. Get selected value index
-                    // 1.1 Current selected index and get selected index should not same.
-                    // 2. set control selected index
-
-                    // List<object> data = control.Choices as List<object>;
-
-                    var index = control.Choices.IndexOf(newValue);
-                    if (control._selectedIndex != index)
-                    {
-                        control._selectedIndex = index;
-                        control.Text = control._choices[index];
-                        control.AnimateToInactiveOrFocusedStateOnStart(control);
-
-                        control.UpdateCounter();
-                        // control.OnSelectChoices();
-                    }
-                }
-            }
-        }
 
         public static readonly BindableProperty ErrorColorProperty = BindableProperty.Create(nameof(ErrorColor), typeof(Color), typeof(MaterialTextField), Material.Color.Error);
 
@@ -98,9 +67,13 @@ namespace XF.Material.Forms.UI
 
         public static readonly BindableProperty IsTextPredictionEnabledProperty = BindableProperty.Create(nameof(IsTextPredictionEnabled), typeof(bool), typeof(MaterialTextField), false);
 
-        public static readonly BindableProperty LeadingIconProperty = BindableProperty.Create(nameof(LeadingIcon), typeof(string), typeof(MaterialTextField));
+        //public static readonly BindableProperty LeadingIconProperty = BindableProperty.Create(nameof(LeadingIcon), typeof(ImageSource), typeof(MaterialTextField));
+
+        public static readonly BindableProperty LeadingIconProperty = BindableProperty.Create(nameof(LeadingIcon), typeof(string), typeof(MaterialTextField), string.Empty);
 
         public static readonly BindableProperty LeadingIconTintColorProperty = BindableProperty.Create(nameof(LeadingIconTintColor), typeof(Color), typeof(MaterialTextField), Color.FromHex("#99000000"));
+
+        public static readonly BindableProperty ErrorIconProperty = BindableProperty.Create(nameof(ErrorIcon), typeof(string), typeof(MaterialTextField), "\uf06a");
 
         public static readonly BindableProperty MaxLengthProperty = BindableProperty.Create(nameof(MaxLength), typeof(int), typeof(MaterialTextField), 0);
 
@@ -132,12 +105,18 @@ namespace XF.Material.Forms.UI
 
         public static readonly BindableProperty UnderlineColorProperty = BindableProperty.Create(nameof(UnderlineColor), typeof(Color), typeof(MaterialTextField), Color.FromHex("#99000000"));
 
-        //public static readonly BindableProperty ChoicesBindingNameProperty = BindableProperty.Create(nameof(Text), typeof(string), typeof(MaterialTextField), string.Empty, BindingMode.TwoWay);
+        public static readonly BindableProperty KeepErrorShownProperty = BindableProperty.Create(nameof(KeepErrorShown), typeof(bool), typeof(MaterialTextField), false);
 
-        private const double AnimationDuration = 0.35;
-        private readonly Easing _animationCurve = Easing.SinOut;
+        public static readonly BindableProperty ShowHelperOnlyOnFocusProperty = BindableProperty.Create(nameof(ShowHelperOnlyOnFocus), typeof(bool), typeof(MaterialTextField), true);
+
+        //public static readonly BindableProperty ChoicesBindingNameProperty = BindableProperty.Create(nameof(Text), typeof(string), typeof(MaterialTextField), string.Empty, BindingMode.TwoWay);
+        #endregion
+
+        private const double AnimationDuration = 0.85;
+        private readonly Easing _animationCurve = Easing.SinInOut;
         private readonly Dictionary<string, Action> _propertyChangeActions;
         private IList<string> _choices;
+        private IList<string> _choicesResults;
         private bool _counterEnabled;
         private DisplayInfo _lastDeviceDisplay;
         private int _selectedIndex = -1;
@@ -177,6 +156,11 @@ namespace XF.Material.Forms.UI
         public event EventHandler Completed;
 
         /// <summary>
+        /// Raised when the user finalizes the input on this text field using the return key.
+        /// </summary>
+        public new event EventHandler HelperIsVisble;
+
+        /// <summary>
         /// Gets or sets whether the underline accent of this text field should always show or not.
         /// </summary>
         public bool AlwaysShowUnderline
@@ -193,6 +177,9 @@ namespace XF.Material.Forms.UI
             get => (Color)GetValue(BackgroundColorProperty);
             set => SetValue(BackgroundColorProperty, value);
         }
+
+
+        #region CHOICES
 
         /// <summary>
         /// Gets or sets the collection of objects which the user will choose from. This is required when <see cref="InputType"/> is set to <see cref="MaterialTextFieldInputType.Choice"/>.
@@ -224,6 +211,56 @@ namespace XF.Material.Forms.UI
             set => SetValue(ChoiceSelectedCommandProperty, value);
         }
 
+        private IList<string> GetChoices(out IList<string> choicesResults)
+        {
+            var choiceStrings = new List<string>(Choices.Count);
+            choicesResults = new List<string>(Choices.Count);
+            var listType = Choices[0].GetType();
+            foreach (var item in Choices)
+            {
+                string choice = item.ToString();
+                if (!string.IsNullOrEmpty(ChoicesBindingName))
+                {
+                    var propInfo = listType.GetProperty(ChoicesBindingName);
+
+                    if (propInfo != null)
+                    {
+                        var propValue = propInfo.GetValue(item);
+                        choice = propValue.ToString();
+                    }
+                }
+
+                choiceStrings.Add(choice);
+
+                string choiceResult = choice;
+                if (!string.IsNullOrEmpty(ChoicesResultBindingName))
+                {
+                    var propInfo = listType.GetProperty(ChoicesResultBindingName);
+
+                    if (propInfo != null)
+                    {
+                        var propValue = propInfo.GetValue(item);
+                        choiceResult = propValue.ToString();
+                    }
+                }
+
+                choicesResults.Add(choiceResult);
+            }
+
+            return choiceStrings;
+        }
+
+        private object GetSelectedChoice(int index)
+        {
+            if (index < 0)
+            {
+                return null;
+            }
+            return Choices[index];
+        }
+
+        #endregion
+
         /// <summary>
         /// Gets or sets the color to indicate an error in this text field.
         /// The default value is the color of <see cref="MaterialColorConfiguration.Error"/>.
@@ -241,6 +278,24 @@ namespace XF.Material.Forms.UI
         {
             get => (string)GetValue(ErrorTextProperty);
             set => SetValue(ErrorTextProperty, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the boolean value whether the error should continue to show once it has lost focus.
+        /// </summary>
+        public bool KeepErrorShown
+        {
+            get => (bool)GetValue(KeepErrorShownProperty);
+            set => SetValue(KeepErrorShownProperty, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the boolean value whether the helper text should only show once it has focus.
+        /// </summary>
+        public bool ShowHelperOnlyOnFocus
+        {
+            get => (bool)GetValue(ShowHelperOnlyOnFocusProperty);
+            set => SetValue(ShowHelperOnlyOnFocusProperty, value);
         }
 
         /// <summary>
@@ -387,6 +442,12 @@ namespace XF.Material.Forms.UI
             set => SetValue(LeadingIconProperty, value);
         }
 
+        //public ImageSource LeadingIcon
+        //{
+        //    get => (ImageSource)GetValue(LeadingIconProperty);
+        //    set => SetValue(LeadingIconProperty, value);
+        //}
+
         /// <summary>
         /// Gets or sets the tint color of the icon of this text field.
         /// </summary>
@@ -394,6 +455,15 @@ namespace XF.Material.Forms.UI
         {
             get => (Color)GetValue(LeadingIconTintColorProperty);
             set => SetValue(LeadingIconTintColorProperty, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the image source of the icon to be showed at the left side of this text field.
+        /// </summary>
+        public string ErrorIcon
+        {
+            get => (string)GetValue(ErrorIconProperty);
+            set => SetValue(ErrorIconProperty, value);
         }
 
         /// <summary>
@@ -477,6 +547,8 @@ namespace XF.Material.Forms.UI
         }
 
         public string ChoicesBindingName { get; set; }
+
+        public string ChoicesResultBindingName { get; set; }
 
         //public string ChoicesBindingName
         //{
@@ -577,6 +649,7 @@ namespace XF.Material.Forms.UI
                 entry.Focused += Entry_Focused;
                 entry.Unfocused += Entry_Unfocused;
                 entry.Completed += Entry_Completed;
+                //helper.PropertyChanged += Helper_IsVisible;
                 DeviceDisplay.MainDisplayInfoChanged += DeviceDisplay_MainDisplayInfoChanged;
             }
             else
@@ -587,6 +660,7 @@ namespace XF.Material.Forms.UI
                 entry.Focused -= Entry_Focused;
                 entry.Unfocused -= Entry_Unfocused;
                 entry.Completed += Entry_Completed;
+                //helper.PropertyChanged -= Helper_IsVisible;
                 DeviceDisplay.MainDisplayInfoChanged -= DeviceDisplay_MainDisplayInfoChanged;
             }
         }
@@ -644,11 +718,26 @@ namespace XF.Material.Forms.UI
             {
                 var tintColor = HasError ? ErrorColor : TintColor;
 
+                underline.Color = tintColor;
+
                 if (ShouldAnimateUnderline)
                 {
                     anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, 1, 2, _animationCurve, () =>
                     {
-                        underline.Color = tintColor;
+                        //underline.Color = tintColor;
+                    }));
+                }
+
+                if (ShowHelperOnlyOnFocus)
+                {
+                    //helper.HeightRequest = 0;
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.HeightRequest = v, 0, 25, _animationCurve, () =>
+                    {
+                        //helper.HeightRequest = 15;
+                    }));
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.Opacity = v, 0, 1, _animationCurve, () =>
+                    {
+                        //helper.Opacity = 1;
                     }));
                 }
 
@@ -661,18 +750,32 @@ namespace XF.Material.Forms.UI
 
                 var endHeight = hasText ? 1 : 0;
 
+                underline.Color = underlineColor;
+
                 if (ShouldAnimateUnderline)
                 {
                     anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, underline.HeightRequest, endHeight, _animationCurve, () =>
                     {
-                        underline.Color = underlineColor;
+                        //underline.Color = underlineColor;
+                    }));
+                }
+
+                if (ShowHelperOnlyOnFocus)
+                {
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.HeightRequest = v, 25, 0, _animationCurve, () =>
+                    {
+                        helper.HeightRequest = 0;
+                    }));
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.Opacity = v, 1, 0, _animationCurve, () =>
+                    {
+                        helper.Opacity = 0;
                     }));
                 }
 
                 placeholder.TextColor = placeholderColor;
             }
 
-            anim.Commit(this, "UnfocusAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS ? 500 : AnimationDuration * 1000), easing: _animationCurve);
+            anim.Commit(this, "UnfocusAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS ? 750 : AnimationDuration * 1000), easing: _animationCurve);
         }
 
         private void AnimateToInactiveOrFocusedState()
@@ -680,10 +783,13 @@ namespace XF.Material.Forms.UI
             Color tintColor;
             var preferredStartFont = FloatingPlaceholderFontSize == 0 ? entry.FontSize * 0.75 : FloatingPlaceholderFontSize;
             var preferredEndFont = FloatingPlaceholderFontSize == 0 ? entry.FontSize * 0.75 : FloatingPlaceholderFontSize;
-            var startFont = entry.IsFocused ? entry.FontSize : preferredStartFont;
-            var endFOnt = entry.IsFocused ? preferredEndFont : entry.FontSize;
+            //var startFont = entry.IsFocused ? entry.FontSize : preferredStartFont;
+            //var endFOnt = entry.IsFocused ? preferredEndFont : entry.FontSize;
+            var startFont = entry.IsFocused ? entry.FontSize * 0.85 : preferredStartFont;
+            var endFOnt = entry.IsFocused ? preferredEndFont : entry.FontSize * 0.85;
             var startY = placeholder.TranslationY;
-            var endY = entry.IsFocused ? -(entry.FontSize * 0.8) : 0;
+            //WHERE SHOULD THE FLOATING PLACEHOLDER BE PLACED
+            var endY = entry.IsFocused ? -(entry.FontSize * 1.1) : 0;
 
             if (HasError)
             {
@@ -722,17 +828,47 @@ namespace XF.Material.Forms.UI
                 {
                     underline.Color = HasError ? ErrorColor : TintColor;
 
-                    anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, Width, _animationCurve, () =>
+                    if(AlwaysShowUnderline)
                     {
-                        underline.WidthRequest = -1;
-                        underline.HorizontalOptions = LayoutOptions.FillAndExpand;
-                    }));
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, entry.Width, _animationCurve, () =>
+                        {
+                            underline.WidthRequest = -1;
+                            underline.HorizontalOptions = LayoutOptions.FillAndExpand;
+                        }));
+                    }
+                    else
+                    {
+                        //var widthCalc = Convert.ToDouble(Width - (entry.Margin.Right * 2));
+                        //var widthCalcB = Convert.ToDouble();
+                        //var widthCalcC = Convert.ToDouble(entry.WidthRequest);
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, entry.Width, _animationCurve, () =>
+                        {
+                            underline.WidthRequest = -1;
+                            underline.HorizontalOptions = LayoutOptions.FillAndExpand;
+                        }));
+                    }
+
+                    if(ShowHelperOnlyOnFocus)
+                    {
+                        //helper.HeightRequest = 0;
+                        anim.Add(0.0, AnimationDuration, new Animation(v => helper.HeightRequest = v, 0, 25, _animationCurve, () =>
+                        {
+                            //helper.HeightRequest = 15;
+                        }));
+                        anim.Add(0.0, AnimationDuration, new Animation(v => helper.Opacity = v, 0, 1, _animationCurve, () =>
+                        {
+                            //helper.Opacity = 1;
+                        }));
+                    }
+                    
                 }
             }
             else
             {
                 if (ShouldAnimateUnderline)
                 {
+                    underline.Color = HasError ? ErrorColor : UnderlineColor;
+
                     anim.Add(0.0, AnimationDuration, new Animation(v => underline.HeightRequest = v, underline.HeightRequest, 0, _animationCurve, () =>
                     {
                         underline.WidthRequest = 0;
@@ -740,20 +876,43 @@ namespace XF.Material.Forms.UI
                         underline.HorizontalOptions = LayoutOptions.Center;
                     }));
                 }
+
+                if (ShowHelperOnlyOnFocus)
+                {
+                    
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.HeightRequest = v, 25, 0, _animationCurve, () =>
+                    {
+                        helper.HeightRequest = 0;
+                    }));
+                    anim.Add(0.0, AnimationDuration, new Animation(v => helper.Opacity = v, 1, 0, _animationCurve, () =>
+                    {
+                        helper.Opacity = 0;
+                    }));
+                }
             }
 
-            anim.Commit(this, "FocusAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS ? 500 : AnimationDuration * 1000), easing: _animationCurve);
+            anim.Commit(this, "FocusAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS ? 750 : AnimationDuration * 1000), easing: _animationCurve);
         }
 
         private void AnimateToInactiveOrFocusedStateOnStart(object startObject)
         {
-            var placeholderEndY = -(entry.FontSize * 0.8);
-            var placeholderEndFont = entry.FontSize * 0.75;
+            var placeholderEndY = -(entry.FontSize * 1.1);
+            var placeholderEndFont = entry.FontSize * 0.85;
 
             if (!FloatingPlaceholderEnabled && string.IsNullOrEmpty(entry.Text))
             {
                 placeholder.TextColor = PlaceholderColor;
             }
+
+            if(!entry.IsFocused)
+            {
+                if (ShowHelperOnlyOnFocus)  
+                {
+                    helper.HeightRequest = 0;
+                    helper.Opacity = 0;
+                }
+            }
+            
 
             if (startObject != null && !string.IsNullOrEmpty(Text) && !_wasFocused)
             {
@@ -779,9 +938,13 @@ namespace XF.Material.Forms.UI
 
                     if (ShouldAnimateUnderline)
                     {
-                        underline.Color = HasError ? ErrorColor : TintColor;
+                        if(Choices?.Count > 0)
+                            underline.Color = HasError ? ErrorColor : UnderlineColor;
+                        else
+                            underline.Color = HasError ? ErrorColor : TintColor;
+
                         underline.HeightRequest = 1;
-                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, Width, _animationCurve, () => underline.HorizontalOptions = LayoutOptions.FillAndExpand));
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, 0, entry.Width, _animationCurve, () => underline.HorizontalOptions = LayoutOptions.FillAndExpand));
                     }
 
                     anim.Commit(this, "Anim2", rate: 2, length: (uint)(AnimationDuration * 1000), easing: _animationCurve);
@@ -794,7 +957,7 @@ namespace XF.Material.Forms.UI
 
             if (startObject != null && string.IsNullOrEmpty(Text) && placeholder.TranslationY == placeholderEndY)
             {
-                if (entry.IsFocused)
+               if (entry.IsFocused)
                 {
                     return;
                 }
@@ -815,11 +978,16 @@ namespace XF.Material.Forms.UI
 
                     if (ShouldAnimateUnderline)
                     {
-                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, Width, 0, _animationCurve, () => underline.HorizontalOptions = LayoutOptions.Center));
+                        anim.Add(0.0, AnimationDuration, new Animation(v => underline.WidthRequest = v, entry.Width, 0, _animationCurve, () => underline.HorizontalOptions = LayoutOptions.Center));
                     }
 
                     anim.Commit(this, "Anim2", rate: 2, length: (uint)(AnimationDuration * 1000), easing: _animationCurve);
                 });
+            }
+        
+            if(startObject != null && string.IsNullOrEmpty(Text) && placeholder.TranslationY != placeholderEndY)
+            {
+                placeholder.FontSize = placeholderEndFont;
             }
         }
 
@@ -830,9 +998,13 @@ namespace XF.Material.Forms.UI
             counter.TextColor = ErrorColor;
             underline.Color = ShouldAnimateUnderline ? ErrorColor : Color.Transparent;
             persistentUnderline.Color = AlwaysShowUnderline ? ErrorColor : Color.Transparent;
+
+
             trailingIcon.IsVisible = true;
-            trailingIcon.Source = "xf_error";
-            trailingIcon.TintColor = ErrorColor;
+            //trailingIcon.Source = ErrorIcon;
+            trailingIcon.Text = ErrorIcon;
+            //trailingIcon.TintColor = ErrorColor;
+            trailingIcon.TextColor = ErrorColor;
 
             if (string.IsNullOrEmpty(ErrorText))
             {
@@ -864,8 +1036,11 @@ namespace XF.Material.Forms.UI
             {
                 if (InputType == MaterialTextFieldInputType.Choice)
                 {
-                    trailingIcon.Source = "xf_arrow_dropdown";
-                    trailingIcon.TintColor = TextColor;
+                    //trailingIcon.Source = "xf_arrow_dropdown";
+                    trailingIcon.Text = "\uf150";
+
+                    //trailingIcon.TintColor = TextColor;
+                    trailingIcon.TextColor = TextColor;
                 }
                 else
                 {
@@ -881,6 +1056,7 @@ namespace XF.Material.Forms.UI
                 if (string.IsNullOrEmpty(ErrorText))
                 {
                     helper.TextColor = HelperTextColor;
+                    helper.Text = HelperText;
                 }
                 else
                 {
@@ -891,6 +1067,42 @@ namespace XF.Material.Forms.UI
                     await Task.WhenAll(helper.FadeTo(1, 150, _animationCurve), helper.TranslateTo(0, 0, 150, _animationCurve));
                 }
             });
+        }
+
+        private static void SelectedChoicePropertyChange(BindableObject bindable, object oldValue, object newValue)
+        {
+            var control = bindable as MaterialTextField;
+            if (control == null)
+            {
+                return;
+            }
+
+            if (control.Choices?.Count > 0)
+            {
+                if (newValue != null)
+                {
+                    // 1. Get selected value index
+                    // 1.1 Current selected index and get selected index should not same.
+                    // 2. set control selected index
+
+                    // List<object> data = control.Choices as List<object>;
+
+                    var index = control.Choices.IndexOf(newValue);
+
+                    var underlineColor = control.HasError ? control.ErrorColor : control.UnderlineColor;
+                    control.underline.Color = underlineColor;
+
+                    if (control._selectedIndex != index)
+                    {
+                        control._selectedIndex = index;
+                        control.Text = control._choicesResults[index];
+                        control.AnimateToInactiveOrFocusedStateOnStart(control);
+
+                        control.UpdateCounter();
+                        // control.OnSelectChoices();
+                    }
+                }
+            }
         }
 
         private void DeviceDisplay_MainDisplayInfoChanged(object sender, DisplayInfoChangedEventArgs e)
@@ -907,11 +1119,20 @@ namespace XF.Material.Forms.UI
             }
         }
 
+        #region ENTRY
         private void Entry_Completed(object sender, EventArgs e) => Completed?.Invoke(this, EventArgs.Empty);
 
         private void Entry_Focused(object sender, FocusEventArgs e)
         {
             _wasFocused = true;
+
+            //IF HELPER TEXT IS NOT NULL THEN SHOW IT ON FOCUS
+            //IF THERE IS AN ERROR THEN SHOW IT
+            if (!HasError)
+                helper.IsVisible = !string.IsNullOrEmpty(HelperText);
+            else
+                helper.IsVisible = true;
+
             FocusCommand?.Execute(entry.IsFocused);
             Focused?.Invoke(this, e);
             UpdateCounter();
@@ -938,7 +1159,8 @@ namespace XF.Material.Forms.UI
 
         private void Entry_SizeChanged(object sender, EventArgs e)
         {
-            var baseHeight = FloatingPlaceholderEnabled ? 56 : 40;
+            //var baseHeight = FloatingPlaceholderEnabled ? 56 : 40;
+            var baseHeight = FloatingPlaceholderEnabled ? 30 : 30;
             var diff = entry.Height - 20;
             var rawRowHeight = baseHeight + diff;
             _autoSizingRow.Height = new GridLength(rawRowHeight);
@@ -966,12 +1188,18 @@ namespace XF.Material.Forms.UI
             counter.Margin = new Thickness(0, counter.Margin.Top, HorizontalPadding.Right, 0);
 
             var placeholderLeftMargin = FloatingPlaceholderEnabled ? HorizontalPadding.Left : entry.Margin.Left;
-            placeholder.Margin = new Thickness(placeholderLeftMargin, 0, 0, 0);
+            placeholder.Margin = new Thickness(placeholderLeftMargin, entry.Margin.Top, 0, entry.Margin.Bottom);
+
+            underline.Margin = new Thickness(entry.Margin.Left, 0, entry.Margin.Left, -1);
+            persistentUnderline.Margin = new Thickness(entry.Margin.Left, 0, entry.Margin.Left, -1);
 
             if (HasError)
             {
                 underline.Color = ErrorColor;
             }
+
+            if (!ShowHelperOnlyOnFocus || KeepErrorShown)
+                helper.IsVisible = true;
         }
 
         private void Entry_TextChanged(object sender, TextChangedEventArgs e)
@@ -980,53 +1208,65 @@ namespace XF.Material.Forms.UI
             TextChanged?.Invoke(this, e);
         }
 
+        //private void Helper_IsVisible(object sender, PropertyChangedEventArgs e)
+        //{
+        //    var anim = new Animation();
+        //    //TextChangeCommand?.Execute(entry.Text);
+        //    //TextChanged?.Invoke(this, e);
+        //    var help = sender;
+        //    var test = e;
+        //    if (helper.IsVisible)
+        //        helper.BackgroundColor = Color.Red;
+        //    else
+        //        helper.BackgroundColor = Color.Green;
+
+            
+        //    if(helper.IsVisible)
+        //    {
+        //        //var start = new GridLength(0);
+        //        //var end = new GridLength(15);
+        //        anim.Add(0.0, AnimationDuration, new Animation(v => helper.TranslationY = v, 1.5, 1, _animationCurve, () =>
+        //        {
+        //            //underline.Color = underlineColor;
+        //            //helper.HeightRequest = 15;
+        //        }));
+        //    }
+        //    else
+        //    {
+        //        anim.Add(0.0, AnimationDuration, new Animation(v => helper.TranslationY = v, 1.5, 1, _animationCurve, () =>
+        //        {
+        //            //underline.Color = underlineColor;
+        //            //helper.HeightRequest = 0;
+        //        }));
+        //    }
+            
+
+        //    anim.Commit(this, "HelperAnimation", rate: 2, length: (uint)(Device.RuntimePlatform == Device.iOS? 500 : AnimationDuration* 1000), easing: _animationCurve);
+        //}
+
+
         private void Entry_Unfocused(object sender, FocusEventArgs e)
         {
             FocusCommand?.Execute(entry.IsFocused);
+
+            //// HIDE HELPER TEXT WHEN THE FOCUS IS LOST ON THE TEXT BOX
+            //if (ShowHelperOnlyOnFocus)
+            //    if (!HasError)
+            //        helper.IsVisible = false;
+
+            //// HIDE HELPER TEXT WHEN THE FOCUS IS LOST ON THE TEXT BOX AND ISN'T REQUIRED TO BE SHOWN
+            //// EVEN WHEN IT HAS AN ERROR
+            //if (HasError && !KeepErrorShown)
+            //    helper.IsVisible = false;
+
             Unfocused?.Invoke(this, e);
             UpdateCounter();
         }
 
-        private IList<string> GetChoices()
-        {
-            var choiceStrings = new List<string>(Choices.Count);
-            var listType = Choices[0].GetType();
-            foreach (var item in Choices)
-            {
-                if (!string.IsNullOrEmpty(ChoicesBindingName))
-                {
-                    var propInfo = listType.GetProperty(ChoicesBindingName);
+        #endregion
+        
 
-                    if (propInfo == null)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Property {ChoicesBindingName} was not found for item in {Choices}.");
-                        choiceStrings.Add(item.ToString());
-                    }
-                    else
-                    {
-                        var propValue = propInfo.GetValue(item);
-                        choiceStrings.Add(propValue.ToString());
-                    }
-                }
-                else
-                {
-                    choiceStrings.Add(item.ToString());
-                }
-            }
-
-            return choiceStrings;
-        }
-
-        private object GetSelectedChoice(int index)
-        {
-            if (index < 0)
-            {
-                return null;
-            }
-
-            return Choices[index];
-        }
-
+        #region ON CHANGED
         private void OnAlwaysShowUnderlineChanged(bool isShown)
         {
             persistentUnderline.IsVisible = isShown;
@@ -1040,7 +1280,19 @@ namespace XF.Material.Forms.UI
 
         private void OnChoicesChanged(ICollection choices)
         {
-            _choices = choices?.Count > 0 ? GetChoices() : null;
+            if (choices?.Count > 0)
+            {
+                _choices = GetChoices(out _choicesResults);
+
+                //IF THE INPUT IS CHOICE AND THE HELPER IS NOT TO BE SHOWN THEN MAKE THE ROW HEIGHT 0
+                if(ShowHelperOnlyOnFocus)
+                    _autoHelperSizingRow.Height = new GridLength(0);
+            }
+            else
+            {
+                _choices = null;
+                _choicesResults = null;
+            }
         }
 
         private void OnEnabledChanged(bool isEnabled)
@@ -1051,7 +1303,8 @@ namespace XF.Material.Forms.UI
 
         private void OnErrorColorChanged(Color errorColor)
         {
-            trailingIcon.TintColor = errorColor;
+            //trailingIcon.TintColor = errorColor;
+            trailingIcon.TextColor = errorColor;
         }
 
         private void OnErrorTextChanged()
@@ -1060,6 +1313,17 @@ namespace XF.Material.Forms.UI
             {
                 ChangeToErrorState();
             }
+
+            if (!ShowHelperOnlyOnFocus)
+                helper.IsVisible = !string.IsNullOrEmpty(ErrorText);
+            else
+                helper.IsVisible = false;
+
+            if (HasError && KeepErrorShown)
+                helper.IsVisible = true;
+
+            if (HasError && !KeepErrorShown)
+                 helper.IsVisible = false;
         }
 
         private void OnFloatingPlaceholderEnabledChanged(bool isEnabled)
@@ -1089,7 +1353,18 @@ namespace XF.Material.Forms.UI
         private void OnHelperTextChanged(string helperText)
         {
             helper.Text = helperText;
-            helper.IsVisible = !string.IsNullOrEmpty(helperText);
+            
+            if(!ShowHelperOnlyOnFocus)
+                helper.IsVisible = !string.IsNullOrEmpty(helperText);
+            else
+                helper.IsVisible = false;
+
+            if (HasError && KeepErrorShown)
+                helper.IsVisible = true;
+
+            if (HasError && !KeepErrorShown)
+                helper.IsVisible = false;
+
         }
 
         private void OnHelperTextColorChanged(Color textColor)
@@ -1097,14 +1372,14 @@ namespace XF.Material.Forms.UI
             helper.TextColor = counter.TextColor = textColor;
         }
 
-        private void OnHelpertTextFontFamilyChanged(string fontFamily)
+        private void OnHelperTextFontFamilyChanged(string fontFamily)
         {
             helper.FontFamily = counter.FontFamily = fontFamily;
         }
 
-        private void OnInputTypeChanged(MaterialTextFieldInputType inputType)
+        private void OnInputTypeChanged()
         {
-            switch (inputType)
+            switch (InputType)
             {
                 case MaterialTextFieldInputType.Chat:
                     entry.Keyboard = Keyboard.Chat;
@@ -1122,8 +1397,31 @@ namespace XF.Material.Forms.UI
                     entry.Keyboard = Keyboard.Numeric;
                     break;
 
+                //Only when plain type of keyboard we need consider the keyboard flags
+                //Same as Xamarin.Forms.Entry control
                 case MaterialTextFieldInputType.Plain:
-                    entry.Keyboard = Keyboard.Plain;
+                    var flags = KeyboardFlags.None;
+                    if (IsTextAllCaps)
+                    {
+                        flags |= KeyboardFlags.CapitalizeCharacter;
+                    }
+
+                    if (IsAutoCapitalizationEnabled && !IsTextAllCaps)
+                    {
+                        flags |= KeyboardFlags.CapitalizeWord;
+                    }
+
+                    if (IsSpellCheckEnabled)
+                    {
+                        flags |= KeyboardFlags.Spellcheck;
+                    }
+
+                    if (IsTextPredictionEnabled)
+                    {
+                        flags |= KeyboardFlags.Suggestions;
+                    }
+
+                    entry.Keyboard = Keyboard.Create(flags);
                     break;
 
                 case MaterialTextFieldInputType.Telephone:
@@ -1153,49 +1451,24 @@ namespace XF.Material.Forms.UI
 
             // Hint: Will use this for MaterialTextArea
             // entry.AutoSize = inputType == MaterialTextFieldInputType.MultiLine ? EditorAutoSizeOption.TextChanges : EditorAutoSizeOption.Disabled;
-            _gridContainer.InputTransparent = inputType == MaterialTextFieldInputType.Choice;
-            trailingIcon.IsVisible = inputType == MaterialTextFieldInputType.Choice;
+            _gridContainer.InputTransparent = InputType == MaterialTextFieldInputType.Choice;
+            trailingIcon.IsVisible = InputType == MaterialTextFieldInputType.Choice;
 
-            entry.IsNumericKeyboard = inputType == MaterialTextFieldInputType.Telephone || inputType == MaterialTextFieldInputType.Numeric;
-            entry.IsPassword = inputType == MaterialTextFieldInputType.Password || inputType == MaterialTextFieldInputType.NumericPassword;
+            entry.IsNumericKeyboard = InputType == MaterialTextFieldInputType.Telephone || InputType == MaterialTextFieldInputType.Numeric;
+            entry.IsPassword = InputType == MaterialTextFieldInputType.Password || InputType == MaterialTextFieldInputType.NumericPassword;
         }
 
-        private void OnKeyboardFlagsChanged(bool isAutoCapitalizationEnabled, bool isSpellCheckEnabled, bool isTextPredictionEnabled, bool isTextAllCaps)
+        private void OnLeadingIconChanged(string imageSource)
         {
-            var flags = KeyboardFlags.None;
-
-            if (isTextAllCaps)
-            {
-                flags |= KeyboardFlags.CapitalizeCharacter;
-            }
-
-            if (isAutoCapitalizationEnabled && !isTextAllCaps)
-            {
-                flags |= KeyboardFlags.CapitalizeWord;
-            }
-
-            if (isSpellCheckEnabled)
-            {
-                flags |= KeyboardFlags.Spellcheck;
-            }
-
-            if (isTextPredictionEnabled)
-            {
-                flags |= KeyboardFlags.Suggestions;
-            }
-
-            entry.Keyboard = Keyboard.Create(flags);
-        }
-
-        private void OnLeadingIconChanged(string icon)
-        {
-            leadingIcon.Source = icon;
+            //leadingIcon.Source = imageSource;
+            leadingIcon.Text = imageSource;  // string.Format("{0}{1}", '\', imageSource);
             OnLeadingIconTintColorChanged(LeadingIconTintColor);
         }
 
         private void OnLeadingIconTintColorChanged(Color tintColor)
         {
-            leadingIcon.TintColor = tintColor;
+            //leadingIcon.TintColor = tintColor;
+            leadingIcon.TextColor = tintColor;
         }
 
         private void OnMaxLengthChanged(int maxLength, bool isMaxLengthCounterVisible)
@@ -1229,7 +1502,7 @@ namespace XF.Material.Forms.UI
             entry.ReturnCommandParameter = parameter;
         }
 
-        private void OnReturnTypeChangedd(ReturnType returnType)
+        private void OnReturnTypeChanged(ReturnType returnType)
         {
             entry.ReturnType = returnType;
         }
@@ -1238,9 +1511,10 @@ namespace XF.Material.Forms.UI
         {
             if (Choices == null || Choices?.Count <= 0)
             {
-                throw new InvalidOperationException("The property `Choices` is null or empty");
+                //throw new InvalidOperationException("The property `Choices` is null or empty");
+                return;
             }
-            _choices = GetChoices();
+            _choices = GetChoices(out _choicesResults);
 
             var title = MaterialConfirmationDialog.GetDialogTitle(this);
             var confirmingText = MaterialConfirmationDialog.GetDialogConfirmingText(this);
@@ -1260,14 +1534,14 @@ namespace XF.Material.Forms.UI
             if (result >= 0)
             {
                 _selectedIndex = result;
-                Text = _choices[result];
+                Text = _choicesResults[result];
                 // entry.Text = Text;
             }
         }
 
         private void OnTextChanged(string text)
         {
-            if (InputType == MaterialTextFieldInputType.Choice && !string.IsNullOrEmpty(text) && _choices?.Contains(text) == false)
+            if (InputType == MaterialTextFieldInputType.Choice && !string.IsNullOrEmpty(text) && _choicesResults?.Contains(text) == false)
             {
                 Debug.WriteLine($"The `Text` property value `{Text}` does not match any item in the collection `Choices`.");
                 Text = null;
@@ -1295,7 +1569,8 @@ namespace XF.Material.Forms.UI
 
         private void OnTextColorChanged(Color textColor)
         {
-            entry.TextColor = trailingIcon.TintColor = textColor;
+            //entry.TextColor = trailingIcon.TintColor = textColor;
+            entry.TextColor = trailingIcon.TextColor = textColor;
         }
 
         private void OnTextFontFamilyChanged(string fontFamily)
@@ -1321,9 +1596,49 @@ namespace XF.Material.Forms.UI
             }
         }
 
+        private void SetPropertyChangeHandler(ref Dictionary<string, Action> propertyChangeActions)
+        {
+            propertyChangeActions = new Dictionary<string, Action>
+            {
+                { nameof(Text), () => OnTextChanged(Text) },
+                { nameof(TextColor), () => OnTextColorChanged(TextColor) },
+                { nameof(TextFontFamily), () => OnTextFontFamilyChanged(TextFontFamily) },
+                { nameof(TintColor), () => OnTintColorChanged(TintColor) },
+                { nameof(Placeholder), () => OnPlaceholderChanged(Placeholder) },
+                { nameof(PlaceholderColor), () => OnPlaceholderColorChanged(PlaceholderColor) },
+                { nameof(PlaceholderFontFamily), () => OnPlaceholderFontFamilyChanged(PlaceholderFontFamily) },
+                { nameof(HelperText), () => OnHelperTextChanged(HelperText) },
+                { nameof(HelperTextFontFamily), () => OnHelperTextFontFamilyChanged(HelperTextFontFamily) },
+                { nameof(HelperTextColor), () => OnHelperTextColorChanged(HelperTextColor) },
+                { nameof(IsEnabled), () => OnEnabledChanged(IsEnabled) },
+                { nameof(BackgroundColor), () => OnBackgroundColorChanged(BackgroundColor) },
+                { nameof(AlwaysShowUnderline), () => OnAlwaysShowUnderlineChanged(AlwaysShowUnderline) },
+                { nameof(MaxLength), () => OnMaxLengthChanged(MaxLength, IsMaxLengthCounterVisible) },
+                { nameof(ReturnCommand), () => OnReturnCommandChanged(ReturnCommand) },
+                { nameof(ReturnCommandParameter), () => OnReturnCommandParameterChanged(ReturnCommandParameter) },
+                { nameof(ReturnType), () => OnReturnTypeChanged(ReturnType) },
+                { nameof(ErrorColor), () => OnErrorColorChanged(ErrorColor) },
+                { nameof(UnderlineColor), () => OnUnderlineColorChanged(UnderlineColor) },
+                { nameof(HasError), () => OnHasErrorChanged() },
+                { nameof(FloatingPlaceholderEnabled), () => OnFloatingPlaceholderEnabledChanged(FloatingPlaceholderEnabled) },
+                { nameof(Choices), () => OnChoicesChanged(Choices) },
+                { nameof(LeadingIcon), () => OnLeadingIconChanged(LeadingIcon) },
+                { nameof(LeadingIconTintColor), () => OnLeadingIconTintColorChanged(LeadingIconTintColor) },
+                { nameof(InputType), () => OnInputTypeChanged() },
+                { nameof(IsSpellCheckEnabled), () => OnInputTypeChanged() },
+                { nameof(IsTextPredictionEnabled), () => OnInputTypeChanged() },
+                { nameof(IsAutoCapitalizationEnabled), () => OnInputTypeChanged() },
+                { nameof(IsTextAllCaps), () => OnInputTypeChanged() },
+                { nameof(TextFontSize), () => OnTextFontSizeChanged(TextFontSize) },
+                { nameof(ErrorText), () => OnErrorTextChanged() }
+            };
+        }
+        #endregion
+
         private void SetControl()
         {
-            trailingIcon.TintColor = TextColor;
+            //trailingIcon.TintColor = TextColor;
+            trailingIcon.TextColor = TextColor;
             persistentUnderline.Color = UnderlineColor;
             tapGesture.Command = new Command(() =>
             {
@@ -1336,49 +1651,7 @@ namespace XF.Material.Forms.UI
             mainTapGesture.Command = new Command(async () => await OnSelectChoices());
         }
 
-        private void SetPropertyChangeHandler(ref Dictionary<string, Action> propertyChangeActions)
-        {
-            Action keyboardFlagsAction = () => OnKeyboardFlagsChanged(
-                IsAutoCapitalizationEnabled,
-                IsSpellCheckEnabled,
-                IsTextPredictionEnabled,
-                IsTextAllCaps);
-
-            propertyChangeActions = new Dictionary<string, Action>
-            {
-                { nameof(Text), () => OnTextChanged(Text) },
-                { nameof(TextColor), () => OnTextColorChanged(TextColor) },
-                { nameof(TextFontFamily), () => OnTextFontFamilyChanged(TextFontFamily) },
-                { nameof(TintColor), () => OnTintColorChanged(TintColor) },
-                { nameof(Placeholder), () => OnPlaceholderChanged(Placeholder) },
-                { nameof(PlaceholderColor), () => OnPlaceholderColorChanged(PlaceholderColor) },
-                { nameof(PlaceholderFontFamily), () => OnPlaceholderFontFamilyChanged(PlaceholderFontFamily) },
-                { nameof(HelperText), () => OnHelperTextChanged(HelperText) },
-                { nameof(HelperTextFontFamily), () => OnHelpertTextFontFamilyChanged(HelperTextFontFamily) },
-                { nameof(HelperTextColor), () => OnHelperTextColorChanged(HelperTextColor) },
-                { nameof(InputType), () => OnInputTypeChanged(InputType) },
-                { nameof(IsEnabled), () => OnEnabledChanged(IsEnabled) },
-                { nameof(BackgroundColor), () => OnBackgroundColorChanged(BackgroundColor) },
-                { nameof(AlwaysShowUnderline), () => OnAlwaysShowUnderlineChanged(AlwaysShowUnderline) },
-                { nameof(MaxLength), () => OnMaxLengthChanged(MaxLength, IsMaxLengthCounterVisible) },
-                { nameof(ReturnCommand), () => OnReturnCommandChanged(ReturnCommand) },
-                { nameof(ReturnCommandParameter), () => OnReturnCommandParameterChanged(ReturnCommandParameter) },
-                { nameof(ReturnType), () => OnReturnTypeChangedd(ReturnType) },
-                { nameof(ErrorColor), () => OnErrorColorChanged(ErrorColor) },
-                { nameof(UnderlineColor), () => OnUnderlineColorChanged(UnderlineColor) },
-                { nameof(HasError), () => OnHasErrorChanged() },
-                { nameof(FloatingPlaceholderEnabled), () => OnFloatingPlaceholderEnabledChanged(FloatingPlaceholderEnabled) },
-                { nameof(Choices), () => OnChoicesChanged(Choices) },
-                { nameof(LeadingIcon), () => OnLeadingIconChanged(LeadingIcon) },
-                { nameof(LeadingIconTintColor), () => OnLeadingIconTintColorChanged(LeadingIconTintColor) },
-                { nameof(IsSpellCheckEnabled), keyboardFlagsAction },
-                { nameof(IsTextPredictionEnabled), keyboardFlagsAction },
-                { nameof(IsAutoCapitalizationEnabled), keyboardFlagsAction },
-                { nameof(IsTextAllCaps), keyboardFlagsAction },
-                { nameof(TextFontSize), () => OnTextFontSizeChanged(TextFontSize) },
-                { nameof(ErrorText), () => OnErrorTextChanged() }
-            };
-        }
+        
 
         private void UpdateCounter()
         {
